@@ -2,16 +2,28 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import joblib
+import requests
+from io import BytesIO
 
-# --- Load models and encoders ---
-group_clf = joblib.load("group_rf_model.pkl")
-ex_clf = joblib.load("exercise_rf_model.pkl")
+# ---- LOAD MODELS AND ENCODERS ----
+group_clf = joblib.load("group_rf_model.pkl")  # local
 le_group = joblib.load("group_label_encoder.pkl")
 le_ex = joblib.load("exercise_label_encoder.pkl")
 mlb = joblib.load("symptom_mlb.pkl")
 onehot_columns = joblib.load("onehot_columns.pkl")
 
-# --- Input options ---
+# ---- LOAD exercise_rf_model.pkl FROM AWS S3 ----
+S3_MODEL_URL = "https://exer-model.s3.us-east-2.amazonaws.com/exercise_rf_model.pkl"   
+
+@st.cache_resource(show_spinner="Loading exercise model from S3...")
+def load_exercise_model():
+    response = requests.get(S3_MODEL_URL)
+    response.raise_for_status()
+    return joblib.load(BytesIO(response.content))
+
+ex_clf = load_exercise_model()
+
+# ---- INPUT OPTIONS ----
 numeric_cols = ['Exer PrePain', 'Age', 'Height', 'Weight']  # All integer
 categorical_cols = ['ExerSleep', 'Exer Cause', 'Exer PainLocation', 'Exer PainTime', 'Ethnicity', 'Race', 'Gender']
 
@@ -82,7 +94,7 @@ st.header("Enter your details:")
 user_input = {}
 
 # Integer inputs for numeric features
-user_input["Exer PrePain"] = st.number_input("Pain Level (1-10)", min_value=1, max_value=10, value=5, step=1, format="%d")
+user_input["Exer PrePain"] = st.number_input("Exer PrePain (1-10)", min_value=1, max_value=10, value=5, step=1, format="%d")
 user_input["Age"] = st.number_input("Age (years)", min_value=1, max_value=120, value=55, step=1, format="%d")
 user_input["Height"] = st.number_input("Height (inches)", min_value=36, max_value=96, value=66, step=1, format="%d")
 user_input["Weight"] = st.number_input("Weight (lbs)", min_value=30, max_value=400, value=150, step=1, format="%d")
